@@ -1,6 +1,7 @@
 <launch>
   <arg name="config_path" default = "$(find air_slam)/configs/visual_odometry/vo_euroc.yaml" />
-  <arg name="dataroot" default = "/media/data/datasets/euroc/seq/V1_02_medium" />
+  <!--somehow, https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets 上直接点链接无法下数据，使用wget可解-->
+  <arg name="dataroot" default = "/workspace/leofile/slam/dataset/EuRoc/V1_02_medium/mav0" />
   <arg name="camera_config_path" default = "$(find air_slam)/configs/camera/euroc.yaml" />
   <arg name="model_dir" default = "$(find air_slam)/output" />
   <arg name="saving_dir" default = "$(find air_slam)/debug" />

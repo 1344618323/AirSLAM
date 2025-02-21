@@ -82,18 +82,18 @@ void LocalmapOptimization(MapOfPoses& poses, MapOfPoints3d& points, MapOfLine3d&
     VectorOfMonoLineConstraints& mono_line_constraints, VectorOfStereoLineConstraints& stereo_line_constraints,
     VectorOfIMUConstraints& imu_constraints, const Eigen::Matrix3d& Rwg, const OptimizationConfig& cfg){
 
-  // std::cout << "---------LocalmapOptimization----------" << std::endl;
-  // std::cout << "poses.size = " << poses.size() << std::endl;
-  // std::cout << "points.size = " << points.size() << std::endl;
-  // std::cout << "lines.size = " << lines.size() << std::endl;
-  // std::cout << "velocities.size = " << velocities.size() << std::endl;
-  // std::cout << "biases.size = " << biases.size() << std::endl;
-  // std::cout << "mono_point_constraints.size = " << mono_point_constraints.size() << std::endl;
-  // std::cout << "stereo_point_constraints.size = " << stereo_point_constraints.size() << std::endl;
-  // std::cout << "mono_line_constraints.size = " << mono_line_constraints.size() << std::endl;
-  // std::cout << "stereo_line_constraints.size = " << stereo_line_constraints.size() << std::endl;
-  // std::cout << "imu_constraints.size = " << imu_constraints.size() << std::endl;
-  // std::cout << "------------------------------------" << std::endl;
+  std::cout << "---------LocalmapOptimization----------" << std::endl;
+  std::cout << "poses.size = " << poses.size() << std::endl;
+  std::cout << "points.size = " << points.size() << std::endl;
+  std::cout << "lines.size = " << lines.size() << std::endl;
+  std::cout << "velocities.size = " << velocities.size() << std::endl;
+  std::cout << "biases.size = " << biases.size() << std::endl;
+  std::cout << "mono_point_constraints.size = " << mono_point_constraints.size() << std::endl;
+  std::cout << "stereo_point_constraints.size = " << stereo_point_constraints.size() << std::endl;
+  std::cout << "mono_line_constraints.size = " << mono_line_constraints.size() << std::endl;
+  std::cout << "stereo_line_constraints.size = " << stereo_line_constraints.size() << std::endl;
+  std::cout << "imu_constraints.size = " << imu_constraints.size() << std::endl;
+  std::cout << "------------------------------------" << std::endl;
 
   // 1. optimizer
   g2o::SparseOptimizer optimizer;
@@ -128,6 +128,12 @@ void LocalmapOptimization(MapOfPoses& poses, MapOfPoints3d& points, MapOfLine3d&
     int point_id = kv.first+max_frame_id;
     point_vertex->setId((point_id));
     max_point_id = std::max(max_point_id, point_id);
+    /*
+    还不是很确定，看起来是所谓的舒尔消元
+    H [vpose vpoint] = b
+    将vpoint顶点设置为 setMarginalized(true)
+    从而先求vpose，再求vpoint
+    */
     point_vertex->setMarginalized(true);
     point_vertex->setFixed(kv.second.fixed);
     optimizer.addVertex(point_vertex);
@@ -315,6 +321,7 @@ void LocalmapOptimization(MapOfPoses& poses, MapOfPoints3d& points, MapOfLine3d&
     e_imu->setVertex(6, dynamic_cast<g2o::OptimizableGraph::Vertex *>(vG));
 
     if(poses[ipc->id_pose1].fixed || poses[ipc->id_pose2].fixed || false){
+      // 有一个顶点是固定的，就加核函数。啥意思，容易飘？！！！
       g2o::RobustKernelHuber *rki = new g2o::RobustKernelHuber;
       e_imu->setRobustKernel(rki);
       e_imu->setInformation(e_imu->information() * 1e-2);
@@ -351,6 +358,8 @@ void LocalmapOptimization(MapOfPoses& poses, MapOfPoints3d& points, MapOfLine3d&
   for(size_t i=0; i < mono_edges.size(); i++){
     EdgeSE3ProjectPoint* e = mono_edges[i];
     if(e->chi2() > cfg.mono_point || !e->isDepthPositive()){
+      // optimizer.initializeOptimization(level); 可以指定level
+      // 如果优化器设置成0，而边设置成level1，意味着优化时，不会使用这个边
       e->setLevel(1);
     }
     e->setRobustKernel(0);
@@ -449,18 +458,18 @@ int FrameOptimization(MapOfPoses& poses, MapOfPoints3d& points, MapOfLine3d& lin
     VectorOfMonoLineConstraints& mono_line_constraints, VectorOfStereoLineConstraints& stereo_line_constraints,
     VectorOfIMUConstraints& imu_constraints, Eigen::Matrix3d& Rwg, const OptimizationConfig& cfg){
 
-  // std::cout << "---------FrameOptimization----------" << std::endl;
-  // std::cout << "poses.size = " << poses.size() << std::endl;
-  // std::cout << "points.size = " << points.size() << std::endl;
-  // std::cout << "lines.size = " << lines.size() << std::endl;
-  // std::cout << "velocities.size = " << velocities.size() << std::endl;
-  // std::cout << "biases.size = " << biases.size() << std::endl;
-  // std::cout << "mono_point_constraints.size = " << mono_point_constraints.size() << std::endl;
-  // std::cout << "stereo_point_constraints.size = " << stereo_point_constraints.size() << std::endl;
-  // std::cout << "mono_line_constraints.size = " << mono_line_constraints.size() << std::endl;
-  // std::cout << "stereo_line_constraints.size = " << stereo_line_constraints.size() << std::endl;
-  // std::cout << "imu_constraints.size = " << imu_constraints.size() << std::endl;
-  // std::cout << "------------------------------------" << std::endl;
+  std::cout << "---------FrameOptimization----------" << std::endl;
+  std::cout << "poses.size = " << poses.size() << std::endl;
+  std::cout << "points.size = " << points.size() << std::endl;
+  std::cout << "lines.size = " << lines.size() << std::endl;
+  std::cout << "velocities.size = " << velocities.size() << std::endl;
+  std::cout << "biases.size = " << biases.size() << std::endl;
+  std::cout << "mono_point_constraints.size = " << mono_point_constraints.size() << std::endl;
+  std::cout << "stereo_point_constraints.size = " << stereo_point_constraints.size() << std::endl;
+  std::cout << "mono_line_constraints.size = " << mono_line_constraints.size() << std::endl;
+  std::cout << "stereo_line_constraints.size = " << stereo_line_constraints.size() << std::endl;
+  std::cout << "imu_constraints.size = " << imu_constraints.size() << std::endl;
+  std::cout << "------------------------------------" << std::endl;
 
   // 1. optimizer
   g2o::SparseOptimizer optimizer;
@@ -1133,6 +1142,12 @@ int SolvePnPWithCV(FramePtr frame, std::vector<MappointPtr>& mappoints,
   return cv_inliers.rows;
 }
 
+/*
+dR imu预积分结果
+delta_R VO结果
+dRExp(JRg dbg) = delta_R -> JRg dbg = log(dR^T delta_R)
+线性方程求 dbg
+*/
 bool ComputeGyrBias(std::vector<FramePtr>& frames, Eigen::Vector3d& dbg){
   Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
   Eigen::Vector3d b = Eigen::Vector3d::Zero();
@@ -1168,6 +1183,7 @@ void ValidateGyrBias(std::vector<FramePtr>& frames){
   std::cout << "----------------------------------------------" << std::endl;
 }
 
+// 公式没仔细看，就是vinsmono里的，但不包括s
 bool ComputeVelocity(std::vector<FramePtr>& frames, Eigen::Vector3d& gw){
   int N = frames.size();
   int D = 3 * (N+1);

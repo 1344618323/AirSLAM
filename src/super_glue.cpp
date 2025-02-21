@@ -20,9 +20,11 @@ SuperGlue::SuperGlue(const PointMatcherConfig &superglue_config) : superglue_con
 bool SuperGlue::build() {
     // cudaSetDevice(2);
     if(deserialize_engine()){
+        // 是否已经存在一个序列化的 TensorRT engine文件，若有，直接返回
         return true;
     }
 
+    // 创建一个 IBuilder 对象，负责构建网络和优化模型
     auto builder = TensorRTUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder) {
         return false;
@@ -75,6 +77,7 @@ bool SuperGlue::build() {
                            nvinfer1::Dims3(1, 256, 1024));
     config->addOptimizationProfile(profile);
 
+    // 构建网络
     auto constructed = construct_network(builder, network, config, parser);
     if (!constructed) {
         return false;

@@ -201,6 +201,16 @@ private:
   std::vector<MappointPtr> _mappoints;
 
   // line features
+  /*
+  _lines[i] 是一个4维向量，线段两个端点的像素坐标
+
+  下面这几个vector的size都等于_lines.size()
+  _lines_right[i] 和 _lines[i] 一一对应，如果右目中没有对应的，就不赋值
+  _lines_right_valid[i] 和 _lines[i] 一一对应，如果右目中没有对应的，赋值false，否则为true
+  _points_on_lines[i]： 左目 每一条line 上的点索引
+  _line_track_ids[i] 每个line 对应的maplineid
+  _maplines[i] 每个line 对应的 mapline
+  */
   std::vector<Eigen::Vector4d> _lines;
   std::vector<Eigen::Vector4d> _lines_right;
   std::vector<bool> _lines_right_valid;

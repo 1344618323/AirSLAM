@@ -65,6 +65,8 @@ float AngleDiff(float& angle1, float& angle2){
   return std::min(d_angle_case1, d_angle_case2);
 }
 
+// 设输入X个line， Y个pt
+// 则输出 relation.size()==X， 每个line 会有多个 满足要求的 线段上的点，map的key是pt的索引，map的value是点到线距离
 void AssignPointsToLines(std::vector<Eigen::Vector4d>& lines, Eigen::Matrix<float, 259, Eigen::Dynamic>& points, 
     std::vector<std::map<int, double>>& relation){
   Eigen::Array2Xd point_array = points.middleRows(1, 2).array().cast<double>();
@@ -111,6 +113,7 @@ void AssignPointsToLines(std::vector<Eigen::Vector4d>& lines, Eigen::Matrix<floa
       double side1 = std::pow((lx1 - px), 2) + std::pow((ly1 - py), 2);
       double side2 = std::pow((lx2 - px), 2) + std::pow((ly2 - py), 2);
       double line_side = std::pow(D(i), 2);
+      // 这段代码的作用是 点不能出线段 两端
       if(side1 <= 9 || side2 <= 9 || ((side1 < line_side + side2) && (side2 < line_side + side1))){
         points_on_line[j] = pl_distance;
       }
@@ -119,6 +122,8 @@ void AssignPointsToLines(std::vector<Eigen::Vector4d>& lines, Eigen::Matrix<floa
   }
 }
 
+// 根据前、后帧 点匹配的结果，来匹配前、后帧的 线特征
+// 线匹配的最基本想法：若两帧线是匹配的，那线上的点在两帧上也应该是匹配的
 void MatchLines(const std::vector<std::map<int, double>>& points_on_line0, 
     const std::vector<std::map<int, double>>& points_on_line1, const std::vector<cv::DMatch>& point_matches, 
     size_t point_num0, size_t point_num1, std::vector<int>& line_matches){
@@ -131,6 +136,7 @@ void MatchLines(const std::vector<std::map<int, double>>& points_on_line0,
   }
   if(point_num0 == 0 || point_num1 == 0 || line_num0 == 0 || line_num1 == 0) return;
 
+  // 左图的 v[点索引]=[线索引,...]
   std::vector<std::vector<int>> assigned_lines0, assigned_lines1;
   assigned_lines0.resize(point_num0);
   assigned_lines1.resize(point_num1);
@@ -140,6 +146,7 @@ void MatchLines(const std::vector<std::map<int, double>>& points_on_line0,
     }
   }
   
+  // 右图的 v[点索引]=[线索引,...]
   for(size_t i = 0; i < points_on_line1.size(); i++){
     for(auto& kv : points_on_line1[i]){
       assigned_lines1[kv.first].push_back(i);
@@ -147,6 +154,7 @@ void MatchLines(const std::vector<std::map<int, double>>& points_on_line0,
   }
 
   // fill in matching matrix
+  // 这个矩阵的意思 m[i][j] 左目i线 和 右目j线 上的匹配点对 数量
   Eigen::MatrixXi matching_matrix = Eigen::MatrixXi::Zero(line_num0, line_num1);
   for(auto& point_match : point_matches){
     int idx0 = point_match.queryIdx;
@@ -164,11 +172,15 @@ void MatchLines(const std::vector<std::map<int, double>>& points_on_line0,
   std::vector<int> row_max_value(line_num0), col_max_value(line_num1);
   std::vector<Eigen::VectorXi::Index> row_max_location(line_num0), col_max_location(line_num1);
   for(size_t i = 0; i < line_num0; i++){
+    // row_max_value[i]是 matching_matrix.row(i)中最大的值；
+    // row_max_location[i]是 matching_matrix.row(i)中最大值的索引；
     row_max_value[i] = matching_matrix.row(i).maxCoeff(&row_max_location[i]);
   }
   for(size_t j = 0; j < line_num1; j++){
     Eigen::VectorXi::Index col_max_location;
     int col_max_val = matching_matrix.col(j).maxCoeff(&col_max_location);
+
+    // 必须双向奔赴
     if(col_max_val < 2 || row_max_location[col_max_location] != j) continue;
 
     float score = (float)(col_max_val * col_max_val) / std::min(points_on_line0[col_max_location].size(), points_on_line1[j].size());
@@ -208,6 +220,7 @@ bool TriangulateByStereo(const Eigen::Vector4d& line_left, const Eigen::Vector4d
   double dx_left = x12 - x11;
   double dy_left = y12 - y11;
   double angle_left = std::atan(dy_left / dx_left); 
+  // (why?) 为什么水平线不要？
   if(std::abs(dy_left) <= 3 || std::abs(angle_left) < 0.175) return false;    // horizontal line
 
   double dx_right = x22 - x21;
@@ -318,6 +331,7 @@ bool ComputeLine3DFromEndpoints(const Vector6d& endpoints, Line3DPtr line_3d){
 
   Vector6d line_cart;
   line_cart << point3d1, l;
+  // g2o::Line3D::fromCartesian(p1, p2-p1) 的输出是普吕克坐标 w=p1xp2, d=p2-p1
   g2o::Line3D line = g2o::Line3D::fromCartesian(line_cart);
 
   line_3d->setW(line.w());

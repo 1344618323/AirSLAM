@@ -53,6 +53,26 @@ void MapBuilder::AddInput(InputDataPtr data){
   _buffer_mutex.unlock();
 }
 
+/*
+大概总结下：
+未初始化 或 关键帧（上一帧决定该帧时关键帧）时:
+  检测左目点和线特征，并匹配右目点、线特征
+  junction作用是啥，似乎只用于relocalization？
+否则：
+  检测左目点特征
+
+已初始化：
+  当前帧左目点 与 上一关键帧左目点 匹配，有三种结果：
+    0（前后帧match点很少）：
+      若当前是normalframe：
+        匹配当前帧的右目点，若左右目匹配点很多：
+          这一帧是关键帧，下一帧不是关键帧，算normalframe
+      其他情况：下一帧是关键帧，这一帧还算normalframe
+      
+    1（前后帧match点少，但不是特别少。或者匹配点不少，但视差大）：
+      若当前是normalframe，这一帧时关键帧
+    2(下一帧不是关键帧)
+*/
 void MapBuilder::ExtractFeatureThread(){
   while(!_shutdown || !_data_buffer.empty()){
     if(_data_buffer.empty()){
@@ -80,8 +100,12 @@ void MapBuilder::ExtractFeatureThread(){
     std::vector<cv::DMatch> matches, stereo_matches;
     int good_stereo_point = 0;
     FrameType frame_type;
+
+    std::cout<< "STATUS: init: "<<_init<<";insert_next_keyframe: "<<_insert_next_keyframe<<std::endl;
+
     if(!_init || _insert_next_keyframe){
       Eigen::Matrix<float, 259, Eigen::Dynamic> junctions;
+      std::cout << "detect lr plj" << std::endl;
       _feature_detector->Detect(image_left_rect, image_right_rect, left_features, right_features, left_lines, right_lines, junctions);
       _point_matcher->MatchingPoints(left_features, right_features, stereo_matches, false);
       frame->AddLeftFeatures(left_features, left_lines);
@@ -91,6 +115,7 @@ void MapBuilder::ExtractFeatureThread(){
       frame->AddJunctions(junctions);
       // SaveLineDetectionResult(image_left_rect, left_lines, _configs.saving_dir, std::to_string(frame->GetFrameId()));
     }else{
+      std::cout << "detect l p" << std::endl;
       _feature_detector->Detect(image_left_rect, left_features);
       frame->AddLeftFeatures(left_features, left_lines);
       frame_type = FrameType::NormalFrame;
@@ -101,14 +126,18 @@ void MapBuilder::ExtractFeatureThread(){
       _point_matcher->MatchingPoints(features_last_keyframe, left_features, matches, true);
       int enough_match = AddKeyframeCheck(_last_keyframe_feature, frame, matches);
 
+      std::cout<< "STATUS: enough_match: "<<enough_match<< "; frame_type: "<<frame_type<<std::endl;
+
       if(enough_match == 0){  // try to insert this frame as keyframe
         if(frame_type == FrameType::NormalFrame){
+          // 当前帧是关键帧，只用了点检测
           _feature_detector->Detect(image_right_rect, right_features);
           _point_matcher->MatchingPoints(left_features, right_features, stereo_matches, false);
           good_stereo_point = frame->AddRightFeatures(right_features, right_lines, stereo_matches);
         }
 
         if(good_stereo_point < 10){
+          // 立即关键帧，但双目匹配点少，那么下一帧也要是关键帧
           _insert_next_keyframe = true;
           frame_type = FrameType::NormalFrame;
         }else{
@@ -118,6 +147,9 @@ void MapBuilder::ExtractFeatureThread(){
       }else{
         _insert_next_keyframe = (enough_match == 1) && (frame_type == FrameType::NormalFrame);
       }
+
+      std::cout<< "STATUS end: good_stereo_point: "<<good_stereo_point
+        << "; frame_type: "<<frame_type<< "; insert_next_keyframe: "<<_insert_next_keyframe<<std::endl;
     }else{
       if(good_stereo_point < _configs.keyframe_config.min_init_stereo_feature){
         std::cout << "good_stereo_point = " << good_stereo_point << std::endl;
@@ -126,6 +158,7 @@ void MapBuilder::ExtractFeatureThread(){
       }else{
         std::cout << "Initialization is done!" << std::endl;
         _init = true;
+        std::cout<<"STATUS end: frame_type: "<<frame_type<<std::endl;
       }
     }
 
@@ -189,6 +222,7 @@ void MapBuilder::TrackingThread(){
       _preinteration_keyframe.SetBias(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), false);
       frame->SetIMUPreinteration(_preinteration_keyframe);
 
+      std::cout << "insert keyframe (InitializationFrame), id = " << frame->GetFrameId() << std::endl;
       InsertKeyframe(frame);
       _last_keyframe_tracking = frame;
       _last_tracked_frame = frame;
@@ -203,6 +237,19 @@ void MapBuilder::TrackingThread(){
     // IMU preinteration
     _preinteration_keyframe.AddBatchData(batch_imu_data, ref_keyframe->GetTimestamp(), timestamp);
     frame->SetIMUPreinteration(_preinteration_keyframe);
+
+    std::cout<<"TrackingThread frame_type: "<<frame_type<<std::endl;
+    {
+      auto ref_features_nb = ref_keyframe->FeatureNum();
+      auto ref_line_features_nb = ref_keyframe->LineNum();
+      auto ref_points_on_lines = ref_keyframe->GetPointsOnLines();
+      auto current_features_nb = frame->FeatureNum();
+      auto current_line_features_nb = frame->LineNum();
+      auto current_points_on_lines = frame->GetPointsOnLines();
+      std::cout<<"feature nb: "<<ref_features_nb<<" "<<ref_line_features_nb<<" "<<ref_points_on_lines.size()
+                <<" "<<current_features_nb<<" "<<current_line_features_nb<<" "<<current_points_on_lines.size()
+                <<std::endl;
+    }
 
     int track_inliers = TrackFrame(ref_keyframe, frame, matches, _preinteration_keyframe);
 
@@ -282,6 +329,7 @@ int MapBuilder::TrackFrame(FramePtr ref_frame, FramePtr current_frame, std::vect
   return num_inliers;
 }
 
+// 只用了地图点
 int MapBuilder::FramePoseOptimization(FramePtr frame0, FramePtr frame1, std::vector<MappointPtr>& mappoints, 
     std::vector<int>& inliers, Preinteration& preinteration){
 
@@ -300,6 +348,7 @@ int MapBuilder::FramePoseOptimization(FramePtr frame0, FramePtr frame1, std::vec
     Twc = Twb1 * frame1->GetCamera()->CameraToBody();
     Eigen::Vector3d check_dp = Twc.block<3, 1>(0, 3) - _last_tracked_frame->GetPose().block<3, 1>(0, 3);
     if(check_dp.norm() < 1.0){
+      std::cout<<"predict from imu"<<std::endl;
       predict_by_pnp = false;
     }
   }
@@ -311,6 +360,9 @@ int MapBuilder::FramePoseOptimization(FramePtr frame0, FramePtr frame1, std::vec
     Eigen::Vector3d check_dp = Twc.block<3, 1>(0, 3) - _last_tracked_frame->GetPose().block<3, 1>(0, 3);
     if(check_dp.norm() > 1.0 || num_cv_inliers < _configs.keyframe_config.lost_num_match ){
       Twc = _last_tracked_frame->GetPose();
+      std::cout<<"predict was failed"<<std::endl;
+    }else{
+      std::cout<<"predict from pnp"<<std::endl;
     }
   }
 
@@ -428,6 +480,8 @@ int MapBuilder::FramePoseOptimization(FramePtr frame0, FramePtr frame1, std::vec
 // return value: 0 : select this frame as keyframe, 1 : select next frame as keyframe, 2 : not select keyframe
 int MapBuilder::AddKeyframeCheck(FramePtr ref_keyframe, FramePtr current_frame, const std::vector<cv::DMatch>& matches){
   int match_num = matches.size();
+
+  // 匹配点太少了，当前帧就是关键帧
   if(match_num < _configs.keyframe_config.min_num_match) return 0;
 
   const Eigen::Matrix<float, 259, Eigen::Dynamic>& ref_features = ref_keyframe->GetAllFeatures();
@@ -440,6 +494,7 @@ int MapBuilder::AddKeyframeCheck(FramePtr ref_keyframe, FramePtr current_frame, 
     ration_thr *= 0.7;
   }
 
+  // 匹配点不多，或者说 匹配点占检测点 比例低，那下一帧就是关键帧（如果imu还没初始化，那就让关键帧更多一点）
   if((float)match_num/ref_features.cols() < feature_tracking_thr || (float)match_num/current_features.cols() < feature_tracking_thr || match_num < _configs.keyframe_config.max_num_match){
     return 1;
   }
@@ -459,6 +514,7 @@ int MapBuilder::AddKeyframeCheck(FramePtr ref_keyframe, FramePtr current_frame, 
   double image_size = _camera->ImageHeight() * _camera->ImageWidth();
   
   if(average_parallax > image_size * ration_thr * ration_thr){
+    // 视差很大了，下一帧是关键帧
     return 1;
   }
 
@@ -485,12 +541,15 @@ void MapBuilder::InsertKeyframe(FramePtr frame){
   // insert keyframe to map
   _map->InsertKeyframe(frame); 
 
+  // _map->InsertKeyframe 中会计算 map pt 和 keyframe pt 关联的outlier、map line 和 keyframe line关联的outlier
+  // 下面两行会 将这些失去 mappt，mapline的 keframe feature重新分配 mappt mapline
   _track_id = _map->UpdateFrameTrackIds(_track_id);
   _line_track_id = _map->UpdateFrameLineTrackIds(_line_track_id);
 
   Eigen::Vector3d gyr_bias, acc_bias;
   frame->GetBias(gyr_bias, acc_bias);
   _preinteration_keyframe.Reset();
+  // 当前帧优化后的bias，会作为下一关键帧的bias初值
   _preinteration_keyframe.SetBias(gyr_bias, acc_bias, false);
 }
 

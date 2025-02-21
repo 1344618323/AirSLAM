@@ -98,6 +98,7 @@ void Mapline::SetEndpointsUpdateStatus(bool status){
   _to_update_endpoints = status;
 }
 
+// 这个函数没用到
 bool Mapline::ToUpdateEndpoints(){
   return _to_update_endpoints;
 }

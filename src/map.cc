@@ -54,6 +54,7 @@ void Map::InsertKeyframe(FramePtr frame){
       
       Eigen::Vector3d pf;
       if(frame->BackProjectPoint(i, pf)){
+        // 双目都能观测到，才会进入这里，进行三角化
         Eigen::Vector3d pw = Rwf * pf + twf;
         mpt->SetPosition(pw);
       }
@@ -62,6 +63,7 @@ void Map::InsertKeyframe(FramePtr frame){
     }
     mpt->AddObverser(frame_id, i);
     if(mpt->GetType() == Mappoint::Type::UnTriangulated && mpt->ObverserNum() > 2){
+      // 若一直没有三角化，且被观测了三次，这里三角化
       TriangulateMappoint(mpt);
     }
   }
@@ -98,6 +100,7 @@ void Map::InsertKeyframe(FramePtr frame){
       mpl->SetObverserEndpointStatus(frame_id, 0);
     }
     if(mpl->GetType() == Mapline::Type::UnTriangulated && mpl->ObverserNum() >= 2){
+      // 之前一直没三角化，这里多帧三角化一波
       TriangulateMaplineByMappoints(mpl);
     }
   }
@@ -189,6 +192,7 @@ void Map::InsertMapline(MaplinePtr mapline){
   _maplines[mapline_id] = mapline;
 }
 
+// 更新line的端点
 bool Map::UppdateMapline(MaplinePtr mapline){
   if(!mapline || !mapline->IsValid()) return false;
 
@@ -247,6 +251,7 @@ bool Map::UppdateMapline(MaplinePtr mapline){
   return true;
 }
 
+// 这个函数没用
 void Map::UpdateMaplineEndpoints(MaplinePtr mapline){
   if(!mapline || !mapline->IsValid() || !mapline->ToUpdateEndpoints()) return;
   ConstLine3DPtr line_3d = mapline->GetLine3DPtr();
@@ -364,6 +369,7 @@ MaplinePtr Map::GetMaplinePtr(int mapline_id){
   return _maplines[mapline_id];
 }
 
+// 这段代码的公式看得我一脸懵逼，总之 用过去所有的观测 三角化 地图点
 bool Map::TriangulateMappoint(MappointPtr mappoint){
   const std::map<int, int> obversers = mappoint->GetAllObversers();
   Eigen::Matrix3Xd G_bearing_vectors;
@@ -721,6 +727,7 @@ void Map::LocalMapOptimization(FramePtr new_frame){
       FramePtr kf = GetFramePtr(kv.first);
       if(!kf || (kf->local_map_optimization_frame_id != new_frame_id && kf->local_map_optimization_fix_frame_id != new_frame_id)) continue;
 
+      // 观测多于3帧，那么协方差还大一点
       double cov = obversers.size() > 3 ? 0.1 : 0.001;
       Eigen::Vector4d line_left, line_right;
       if(!kf->GetLine(kv.second, line_left)) continue;
@@ -829,6 +836,7 @@ void Map::LocalMapOptimization(FramePtr new_frame){
     _mappoints[mpt_id]->SetPosition(position.p);
   }
 
+  // BA中优化直线方程，在这一步中根据落在线上的3D点，来找出线的端点
   for(auto& kv : lines){
     int mpl_id = kv.first;
     Line3d line = kv.second; 
@@ -863,6 +871,8 @@ void Map::RemoveOutliers(const std::vector<std::pair<FramePtr, MappointPtr>>& ou
     if(!frame || !mpt || mpt->IsBad()) continue;
     to_update_track_id.emplace_back(std::make_pair(frame, mpt->GetKeypointIdx(frame->GetFrameId())));
 
+    // frame抹掉对应的地图点
+    // mpt抹去相关帧的观测
     frame->RemoveMappoint(mpt);
     mpt->RemoveObverser(frame->GetFrameId());
     CheckAndDeleteMappoint(mpt);
@@ -882,6 +892,8 @@ void Map::RemoveLineOutliers(const std::vector<std::pair<FramePtr, MaplinePtr>>&
   }
 }
 
+// 在Map::RemoveOutliers中（即Map::LocalMapOptimization中，即Map::InsertKeyframe中），有些mappt与framekpt的关联会被判定成outlier。
+// 这个函数中会用这些失去mappt的framekpt重新构建一个mappt
 int Map::UpdateFrameTrackIds(int track_id){
   for(auto& pair : to_update_track_id){
     FramePtr frame = pair.first;
@@ -1139,6 +1151,8 @@ bool Map::InitializeIMU(FramePtr frame){
   double angle = acos(gI.dot(gw));
   Eigen::Vector3d rotation_vector = axis.normalized() * angle;
   SO3Exp(rotation_vector, Rwg);
+  // gw = Rwg*[0, 0, -1]
+  // gcur = Rcur_target gtarget
 
   // std::cout << "-------------------Before initialization----------------------" << std::endl;
   // ValidateError(poses, velocities, bias, camera_list, imu_constraints, Rwg, prior_gyr_bias, prior_acc_bias);
@@ -1166,6 +1180,7 @@ bool Map::InitializeIMU(FramePtr frame){
   }
 
   // 3. Rotate all keyframes, mappoints and maplines into new coordinate
+  // 不再使用当前坐标系，换成一个新坐标系，新坐标系中g为=(0, 0, -Camera::IMU_G_VALUE) 
   Eigen::Matrix4d Tgw = Eigen::Matrix4d::Identity();
   Eigen::Matrix3d Rgw = Rwg.transpose();
   Eigen::Vector3d tgw = -Rgw * imu_init_frame->IMUPose().block<3, 1>(0, 3);

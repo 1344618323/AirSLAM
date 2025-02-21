@@ -98,6 +98,7 @@ bool SuperPointLightGlue::build() {
   keypoints_1_dims_ = network->getInput(1)->getDimensions();
   descriptors_0_dims_ = network->getInput(2)->getDimensions();
   descriptors_1_dims_ = network->getInput(3)->getDimensions();
+  // -1 意味着 这个维度是动态的
   assert(keypoints_0_dims_.d[1] == -1);
   assert(keypoints_1_dims_.d[1] == -1);
   assert(descriptors_0_dims_.d[1] == -1);

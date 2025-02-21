@@ -123,6 +123,7 @@ GDirection::GDirection(const Eigen::Matrix3d& Rwg_) : Rwg(Rwg_){
 
 void GDirection::Update(const double *update_){
   Eigen::Vector3d update;
+  // ORB3 里的方法
   update << update_[0], update_[1], 0.0;
   Eigen::Matrix3d dR;
   SO3Exp(update, dR);

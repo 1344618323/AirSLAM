@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(air_slam)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "release")
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)

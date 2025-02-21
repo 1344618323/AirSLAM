@@ -6,6 +6,7 @@
 PointMatcher::PointMatcher(const PointMatcherConfig& config) : _config(config){
   if(_config.matcher == 0){ // lightglue
     _config.dla_core = -1;
+    // lightglue 的输入是两张图的特征点：特征点包括坐标和视觉描述符；输出匹配得分
     _config.input_tensor_names.push_back("keypoints_0");
     _config.input_tensor_names.push_back("keypoints_1");
     _config.input_tensor_names.push_back("descriptors_0");

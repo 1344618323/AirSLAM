@@ -36,6 +36,7 @@ class VertexVIPose : public g2o::BaseVertex<6, VIPose> {
   virtual void setToOriginImpl() {}
 
   virtual void oplusImpl(const double* update_) {
+    // 即调用 VIPose.Update(update_)
     _estimate.Update(update_);
     updateCache();
   }

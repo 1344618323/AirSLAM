@@ -47,6 +47,7 @@ Camera::Camera(const std::string& camera_file){
     _fy_inv = 1.0 / _fy;
 
     _bf = _fx * std::abs(Tc1c0(0, 3));
+    // 最大最小像素视差： 对有效深度 卡一个 上下限，再通过基线 算出 最大、最小 像素视差
     _max_x_diff = _bf / _depth_lower_thr;
     _min_x_diff = _bf / _depth_upper_thr;
   }else{

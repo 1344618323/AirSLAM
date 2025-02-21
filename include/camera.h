@@ -50,6 +50,7 @@ public:
   void GetCamerMatrix(cv::Mat& camera_matrix);
   void GetDistCoeffs(cv::Mat& dist_coeffs);
 
+  // 归一化平面坐标
   bool BackProjectMono(const Eigen::Vector2d& keypoint, Eigen::Vector3d& output);
   bool BackProjectStereo(const Eigen::Vector3d& keypoint, Eigen::Vector3d& output);
 

@@ -92,6 +92,15 @@ int MapRefiner::LoopDetection(){
   return loop_frame_pairs.size();
 }
 
+/*
+详细代码就不看了，结合论文里的描述，大致看下流程
+对每个关键帧有：
+  通过词袋找出非共视帧中的候选匹配帧
+  这些匹配帧也找共视帧，如果候选匹配帧，在共视帧中，那就让group这些候选帧（起一个非极大值抑制的作用）
+  最后只留分数最高的几个group
+  ... 一堆不想看到过程
+  通过lightglue匹配关键帧与回环帧，通过pnp（回环帧的3D点 到 关键帧 匹配点的2D）算pose
+*/
 void MapRefiner::LoopDetection(FramePtr frame, DBoW2::WordIdToFeatures& word_features, DBoW2::BowVector& bow_vector){
   int frame_id = frame->GetFrameId();
   // query

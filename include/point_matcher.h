@@ -13,6 +13,7 @@ public:
       Eigen::Matrix<float, 259, Eigen::Dynamic>& normalized_features, 
       int width, int height, float scale);
 
+  // `outlier_rejection`: 是否使用fundamental矩阵去除外点
   int MatchingPoints(const Eigen::Matrix<float, 259, Eigen::Dynamic>& features0, 
       const Eigen::Matrix<float, 259, Eigen::Dynamic>& features1, 
       std::vector<cv::DMatch>& matches,  bool outlier_rejection=false);

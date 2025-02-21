@@ -81,9 +81,11 @@ private:
 private:
   int _id;
   Type _type;
+  // 这个变量似乎没啥用
   bool _to_update_endpoints;
   bool _endpoints_valid;
   Vector6d _endpoints;
+  // g2o::Line3D 用六维变量（普吕克坐标）来记录直线： 前三维是 p1xp2，后三维是 单位 方向向量p2-p1
   Line3DPtr _line_3d;
   std::map<int, int> _obversers;  // frame_id - line_index 
   std::map<int, int> _included_endpoints;

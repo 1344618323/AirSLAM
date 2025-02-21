@@ -131,6 +131,7 @@ private:
   Eigen::Matrix3d _Rwg;
 
   // for loop detection adn relocalization
+  // 最后的int表示共视地图点的数量
   std::map<FramePtr, std::map<FramePtr, int>> _covisibile_frames;
   DatabasePtr _database;
 

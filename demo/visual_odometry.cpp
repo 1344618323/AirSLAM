@@ -39,6 +39,9 @@ int main(int argc, char **argv) {
     ImuDataList batch_imu_data;
     if(!dataset.GetData(i, image_left, image_right, batch_imu_data, timestamp)) continue;
 
+    /*
+    sensor对齐方式： 一帧数据有一对图片，图片对应的imu序列的时间戳：从上一帧图片的时间戳起，到当前帧图片时间戳后的一个imu时间戳
+    */
     InputDataPtr data = std::shared_ptr<InputData>(new InputData());
     data->index = i;
     data->time = timestamp;

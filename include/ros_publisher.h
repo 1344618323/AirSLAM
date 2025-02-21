@@ -28,7 +28,9 @@ enum FeatureMessgaeType {
 
 struct FeatureMessgae{
   double time;
+  // 当前帧图片（rect后的）
   cv::Mat image;
+  // 关键帧图片，上面画了点、线特征
   cv::Mat key_image;
   int frame_id;
   int keyfrmae_id;

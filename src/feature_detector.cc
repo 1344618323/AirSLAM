@@ -37,6 +37,7 @@ bool FeatureDetector::Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dy
   bool good_infer = false;
   if(_plnet_config.use_superpoint){
     good_infer = _superpoint->infer(image, features);
+    std::cout << "superpoint infer (not plnet infer)" << std::endl;
   }else{
     std::vector<Eigen::Vector4d> lines;
     good_infer = Detect(image, features, lines);
@@ -68,6 +69,7 @@ bool FeatureDetector::Detect(cv::Mat& image, Eigen::Matrix<float, 259, Eigen::Dy
   return good_infer; 
 }
 
+// no use
 bool FeatureDetector::Detect(cv::Mat& image_left, cv::Mat& image_right, 
     Eigen::Matrix<float, 259, Eigen::Dynamic> & left_features, 
     Eigen::Matrix<float, 259, Eigen::Dynamic> & right_features){
@@ -80,6 +82,7 @@ bool FeatureDetector::Detect(cv::Mat& image_left, cv::Mat& image_right,
   return good_infer; 
 }
 
+// no use
 bool FeatureDetector::Detect(cv::Mat& image_left, cv::Mat& image_right, 
     Eigen::Matrix<float, 259, Eigen::Dynamic> & left_features, 
     Eigen::Matrix<float, 259, Eigen::Dynamic> & right_features, 

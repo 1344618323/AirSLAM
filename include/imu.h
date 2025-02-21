@@ -37,8 +37,11 @@ struct ImuData {
 typedef std::vector<ImuData> ImuDataList;
 
 void Hat(Eigen::Matrix3d& m, const Eigen::Vector3d& v);
+// 给定一个矩阵，使其满足SO(3)
 Eigen::Matrix3d NormalizeRotation(const Eigen::Matrix3d &R);
+// 给定一个so(3)（小量），求Jr，以及SO(3)
 void ComputerDeltaR(const Eigen::Vector3d& rv, Eigen::Matrix3d& delta_R, Eigen::Matrix3d& Jr);
+// 线性插值
 Eigen::Vector3d VectorInterpolation(const Eigen::Vector3d& v0, const Eigen::Vector3d& v1, double t0, double t1, double t);
 void SO3Exp(const Eigen::Vector3d& v, Eigen::Matrix3d& R);
 void SO3Log(const Eigen::Matrix3d& R, Eigen::Vector3d& v);

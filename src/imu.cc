@@ -16,6 +16,18 @@ void Hat(Eigen::Matrix3d& m, const Eigen::Vector3d& v){
 Eigen::Matrix3d NormalizeRotation(const Eigen::Matrix3d &R){
     Eigen::JacobiSVD<Eigen::Matrix3d> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
     return svd.matrixU() * svd.matrixV().transpose();
+    /*
+    这个写法有个漏洞，因为 |UV^T| 可能是-1，而不是1
+    if (R.determinant() < 0) {
+        R *= -1;
+    }
+
+    或者
+    if((U*V.t).det()<0){
+        V.col(2)*=-1;
+        return U*V.t
+    }
+    */
 }
 
 void ComputerDeltaR(const Eigen::Vector3d& rv, Eigen::Matrix3d& delta_R, Eigen::Matrix3d& Jr){
@@ -24,6 +36,8 @@ void ComputerDeltaR(const Eigen::Vector3d& rv, Eigen::Matrix3d& delta_R, Eigen::
   Eigen::Matrix3d rv_hat;
   Hat(rv_hat, rv);
   if(d < IMU_EPS){
+    // exp(theta n) = I+sin(theta)/theta hat(theta n) + ... = I+ hat(theta n)
+    // 罗德里格斯公式有三项，这里只近似了头两项
     delta_R = Eigen::Matrix3d::Identity() + rv_hat;
     Jr = Eigen::Matrix3d::Identity();
   }else{
@@ -43,6 +57,8 @@ void SO3Exp(const Eigen::Vector3d& v, Eigen::Matrix3d& R){
   Eigen::Matrix3d Omega2 = Omega * Omega;
   Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
   if(theta < IMU_EPS){
+    // exp(theta n) = I+sin(theta)/theta hat(theta n) + (theta-sin(theta))/theta^2 hat(theta n) hat(theta n) = I+ hat(theta n) + 0.5 hat(theta n) hat(theta n)
+    // 罗德里格斯公式有三项，这里近似了三项
     R = I3 + Omega + 0.5 * Omega2;
   }else{
     double sin_theta = std::sin(theta);
@@ -53,6 +69,21 @@ void SO3Exp(const Eigen::Vector3d& v, Eigen::Matrix3d& R){
   R = NormalizeRotation(R);
 }
 
+/*
+double d = 0.5*(tr(R)-1)
+theta = arccos(d)
+0.5*(R-R^T) = sin(theta)hat(a) -> 0.5* delta_R = sin(theta)[a0, a1, a2]
+
+v=theta a
+
+若d趋近于1，则theta趋近于0，sin(theta)趋近于theta，即v=0.5* delta_R
+
+若d不趋近于1，theta=arccos(d)
+v=theta a = theta [a0, a1, a2] = 0.5* delta_R /sin(theta) * theta 
+=theta/(2* sin(theta)) * delta_R
+
+sin(theta) = sqrt(1-cos(theta)^2) = sqrt(1-d*d)
+*/
 void SO3Log(const Eigen::Matrix3d& R, Eigen::Vector3d& v){
   double d = 0.5 * (R(0, 0) + R(1, 1) + R(2, 2) - 1);
   Eigen::Vector3d delta_R;

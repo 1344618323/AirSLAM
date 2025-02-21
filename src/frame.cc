@@ -136,6 +136,7 @@ void Frame::AddLeftFeatures(Eigen::Matrix<float, 259, Eigen::Dynamic>& features_
   relation_left = points_on_line_left;
 }
 
+// 匹配左右目点、线特征
 int Frame::AddRightFeatures(Eigen::Matrix<float, 259, Eigen::Dynamic>& features_right, 
     std::vector<Eigen::Vector4d>& lines_right, std::vector<cv::DMatch>& stereo_matches){
 
